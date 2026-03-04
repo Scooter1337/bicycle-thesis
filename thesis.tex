@@ -63,7 +63,7 @@ assayed experimentally. This motivates models that can \emph{predict unseen pert
 from limited interventional data.
 
 In this thesis we evaluate \textbf{Bicycle} \cite{rohbeck2024bicycle}, a causal
-model that combines a latent dynamical system with intervention-aware parameterization to infer a
+discovery method that combines a latent dynamical system with intervention-aware parameterization to infer a
 \emph{cyclic} gene regulatory network and generalize to held-out perturbations. We reproduce the
 Bicycle training and evaluation pipeline on three biological contexts from the Perturb-CITE-seq
 study of Frangieh et al.\ \cite{frangieh2021perturbcite}, namely Control, IFN-$\gamma$, and
@@ -139,7 +139,7 @@ We evaluate Bicycle across three biologically distinct contexts from the Frangie
     \item \textbf{IFN-}\(\gamma\): interferon-$\gamma$ stimulation, inducing an immune-activated transcriptional state and altering baseline pathway activity.
     \item \textbf{Co-culture}: T cells cultured with melanoma cells, introducing tumor--immune interaction signals and additional environmental variation.
 \end{itemize}
-These contexts differ in baseline pathway activation and regulatory state, so the same genetic perturbation can yield context-dependent downstream expression changes (e.g., IFN-$\gamma$ activates immune pathways and can shift regulatory sensitivity, while co-culture introduces tumor--immune signaling cues).
+These contexts differ in baseline pathway activation and regulatory state. As a result, the same genetic perturbation can yield context-dependent downstream expression changes. For example, IFN-$\gamma$ activates immune pathways and can shift regulatory sensitivity. Co-culture introduces tumor--immune signaling cues.
 
 \subsection{Contributions}
 The main contributions of this thesis are:
@@ -169,7 +169,7 @@ Throughout, we distinguish (i) \emph{directly perturbed} genes \(g \in P^i\) and
 non-target set because predicting downstream consequences is the goal.
 
 \subsection{Causal graphs and interventions}
-Bicycle is motivated by \emph{structural causal models} (SCMs). An SCM specifies variables
+Bicycle is grounded in \emph{structural causal models} (SCMs). An SCM specifies variables
 \(X_1,\dots,X_G\) through \emph{structural assignments}
 \[
 X_g := f_g\!\big(X_{\mathrm{Pa}(g)}, \varepsilon_g\big),
