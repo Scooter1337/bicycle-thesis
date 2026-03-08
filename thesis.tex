@@ -63,7 +63,7 @@ assayed experimentally. This motivates models that can \emph{predict unseen pert
 from limited interventional data.
 
 In this thesis we evaluate \textbf{Bicycle} \cite{rohbeck2024bicycle}, a causal
-discovery method that combines a latent dynamical system with intervention-aware parameterization to infer a
+model that combines a latent dynamical system with intervention-aware parameterization to infer a
 \emph{cyclic} gene regulatory network and generalize to held-out perturbations. We reproduce the
 Bicycle training and evaluation pipeline on three biological contexts from the Perturb-CITE-seq
 study of Frangieh et al.\ \cite{frangieh2021perturbcite}, namely Control, IFN-$\gamma$, and
@@ -185,7 +185,7 @@ contain feedback loops, motivating cyclic causal models
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\linewidth]{paper/figures/bicycle-figure-1.png}
+\includegraphics[width=0.7\linewidth]{figures/bicycle-figure-1.png}
 \caption{Bicycle integrates information from multiple interventions to infer an underlying causal graph and predict responses for unseen interventions \cite{rohbeck2024bicycle}.}
 \label{fig:bicycle_unseen_interventions}
 \end{figure}
@@ -605,7 +605,7 @@ and rank stability rather than absolute values.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{paper/figures/imae_boxplots.pdf}
+    \includegraphics[width=\linewidth]{figures/imae_boxplots.pdf}
     \caption{Comparison of out-of-distribution generalisation in terms of the interventional mean absolute error (I-MAE) across three biological contexts. Co-culture: lymphocytes co-cultured with melanoma cells. IFN-$\gamma$: lymphocytes stimulated by interferon-$\gamma$. Control: lymphocytes cultured in neutral medium. Methods shown are \textit{VCC-Baseline} (the Virtual Cell Challenge cell-mean baseline as defined in Section~\ref{sec:baselines}), \textit{WT-Baseline} (the control-mean baseline as defined in Section~\ref{sec:baselines}), and \textit{Bicycle}. Box plots show the distribution of I-MAE over repeated runs (minimum, lower quartile, median, upper quartile, maximum, and outliers).}
     \label{fig:imae_boxplots}
 \end{figure}
