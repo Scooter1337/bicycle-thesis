@@ -659,7 +659,7 @@ Co-culture   & 0.985 $\pm$ 0.000 & 0.546 $\pm$ 0.000\\
 \end{tabular}
 \end{table}
 
-\textbf{Dataset difficulty ranking.} On the held-out test interventions (the 6 unseen perturbations targeting genes 56--61), IFN-$\gamma$ is consistently the most challenging context, with the highest I-MAE and the lowest DES/PDS. Control and Co-culture are substantially easier; Co-culture is best on I-MAE and PDS, while Control is marginally best on DES. Overall, this points to genuine context-dependent biological differences (rather than a single metric driving the conclusion).
+\textbf{Dataset difficulty ranking.} On the held-out test interventions (the 6 unseen perturbations targeting genes 56--61), IFN-$\gamma$ is consistently the most challenging context, with the highest I-MAE and the lowest DES/PDS. Control and Co-culture are easier test contexts for held-out perturbation prediction, showing lower I-MAE and higher DES/PDS. Co-culture performs best on I-MAE and PDS, while Control is marginally best on DES. Overall, this points to context-dependent differences in prediction difficulty rather than an artifact of any single metric.
 
 \subsubsection{Correlation between metrics}
 To test whether the three metrics are redundant, we compute pairwise correlations across all runs
