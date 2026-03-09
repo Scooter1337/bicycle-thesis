@@ -191,8 +191,7 @@ contain feedback loops, motivating cyclic causal models
 \end{figure}
 
 \subsection{Latent Dynamical System}
-Let \(z \in \mathbb{R}^G\) denote the latent, noise-free gene expression state. Bicycle assumes that gene
-expression follows a multivariate Ornstein--Uhlenbeck (OU) process:
+Let \(z \in \mathbb{R}^G\) denote the latent, noise-free gene expression state. Following Bicycle \cite{rohbeck2024bicycle}, gene expression is modeled as a multivariate Ornstein--Uhlenbeck (OU) process:
 \[
 dz_g(t) =
 \left(
@@ -298,7 +297,7 @@ other genes} \(\neg d\) in that cell \cite{rohbeck2024bicycle}.
 
 In words, Bicycle approximates the conditional distribution \(p(x_{nd} \mid x_{n\neg d})\) via a
 variational approximation over the latent variables. The I-MAE is then computed on \emph{non-target}
-genes \(d \in G\setminus P^i\) for each held-out intervention \(i\). This makes I-MAE \emph{graph-dependent} because the learned regulatory structure determines which conditional dependencies the model uses when predicting each gene from the others; it is therefore not merely an unconditional ``mean profile'' error.
+genes \(d \in G\setminus P^i\) for each held-out intervention \(i\). This makes I-MAE \emph{graph-dependent} because, in each held-out intervention condition \(P_i\), the model predicts the expression of every non-directly perturbed gene \(d \in G \setminus P_i\) from the observed expression of the remaining genes in the same cell. The learned regulatory graph determines which conditional dependencies are used for these predictions, so I-MAE is not merely an unconditional ``mean profile'' error.
 
 \subsection{Reconstructing Bicycle and reproducibility considerations}
 In addition to implementing Bicycle as described in \cite{rohbeck2024bicycle}, we attempted to
@@ -311,10 +310,13 @@ subset (\(G=61\)) and the 90/10 perturbation split protocol (55 train perturbati
 
 Overall, we were able to closely recreate the reported I-MAE behavior (including qualitative
 rankings across contexts and the spread across runs), but we did not obtain a perfect quantitative
-match to the absolute I-MAE values reported by \cite{rohbeck2024bicycle}. This is plausible given
+match to the absolute I-MAE values reported by \cite{rohbeck2024bicycle}; see footnote~\footref{fn:repro-code}).
+\footnote{\label{fn:repro-code}\href{https://github.com/USERNAME/REPO}{Code for our reproduction is available on GitHub.}}This is plausible given
 that several training details of the original Perturb-seq runs (e.g., epoch budget and optimizer
-settings) are not fully specified in the paper, and because our reproduction differs in a few
-implementation choices. Concretely, we trained for up to 40{,}000 epochs (plus 5{,}000 epochs of
+settings) are not fully specified in the paper. Secondly our reproduction differs in a few
+implementation choices. 
+
+Concretely, we trained for up to 40{,}000 epochs (plus 5{,}000 epochs of
 latent pretraining) with early stopping, used Adam with a learning rate of $10^{-3}$ and batch size
 1024, explored a wider regularization sweep (including spectral and Lyapunov scaling), and used a
 full-rank covariance factorization (rank $=61$) for numerical stability, whereas the paper motivates
@@ -337,8 +339,7 @@ Interventional Mean Absolute Error (I-MAE). While simple and interpretable, I-MA
 capture biologically meaningful structure.
 
 In the \textbf{Virtual Cell Challenge}, this motivated the introduction of two additional metrics---the
-Differential Expression Score (DES) and the Perturbation Discrimination Score (PDS)---designed to
-evaluate perturbation modeling beyond reconstruction error \cite{virtualcellchallenge_eval}.
+Differential Expression Score (DES) and the Perturbation Discrimination Score (PDS) \cite{virtualcellchallenge_eval}---designed to evaluate perturbation modeling beyond reconstruction error.
 
 \subsection{Interventional Mean Absolute Error (I-MAE)}
 \label{sec:imae-def}
@@ -351,15 +352,13 @@ Although useful for quantifying reconstruction accuracy, I-MAE has several limit
 metric:
 \begin{itemize}
     \item \textbf{Many genes do not change:} If only a small subset of genes responds to the perturbation,
-    a model can obtain a low average error by predicting the many unaffected genes well, even if it misses
+    a model can obtain a low average error by predicting the many unaffected genes well. This can happen even if it misses
     the key responders.
 
-    \item \textbf{Averaging can hide wrong biology:} Two predictions can have similar MAE even if one gets the
-    direction/pattern of the perturbation response wrong but compensates by being close to the mean.
+    \item \textbf{Averaging can hide wrong biology:} 
+    Two predictions can have similar MAE even when one fails to capture the perturbation response itself. This occurs because MAE only measures absolute deviation from the observed expression values: a prediction that stays close to the overall or control-like mean can obtain a similar error, even if it misses which genes should increase or decrease under the perturbation.
 
-    \item \textbf{No notion of distinguishability:} MAE does not test whether different perturbations produce
-    distinct predicted response signatures; distinct perturbations can collapse toward similar predicted deltas
-    while still keeping average error moderate.
+    \item \textbf{No notion of distinguishability:} MAE also does not test whether different perturbations yield distinct predicted responses. Different perturbations can collapse to similar predicted deltas, while the average error remains moderate.
 \end{itemize}
 
 \subsection{Differential Expression Score (DES)}
@@ -373,10 +372,8 @@ per-perturbation score is
 \[
 \mathrm{DES}_k = \frac{\lvert G_{k,\mathrm{pred}} \cap G_{k,\mathrm{true}} \rvert}{\lvert G_{k,\mathrm{true}} \rvert}.
 \]
-To prevent trivial solutions where a model predicts ``everything is DE'', the evaluation constrains
-predicted DE sets to match the size of the true DE set \cite{virtualcellchallenge_eval}. DES
-therefore focuses on \emph{which} genes change rather than absolute magnitude across the full
-profile.
+
+Without a size constraint, DES would allow a trivial overprediction strategy: by calling many genes differentially expressed, a model could increase overlap with the true DE set even if its predictions were biologically uninformative. The evaluation therefore constrains the evaluated predicted DE set to match the size of the true DE set \cite{virtualcellchallenge_eval}. As a result, DES focuses on \emph{which} genes are recovered as differentially expressed, rather than on absolute effect magnitude across the full profile.
 
 \subsection{Perturbation Discrimination Score (PDS)}
 PDS assesses whether each perturbation’s signature is \textbf{recognizably distinct}. In the Virtual Cell
@@ -452,7 +449,7 @@ steady-state dynamical system and by encoding interventions through ICM-style pa
 invariance.
 
 \subsection{Causal discovery with cycles and interventions}
-Many causal discovery methods assume acyclicity, including among others NODAGS and NOTEARS \cite{sethuraman2023nodagsflow,zheng2018notears}.
+Many causal discovery methods assume acyclicity, including NOTEARS \cite{zheng2018notears}. We highlight NOTEARS in particular because Rohbeck et al.\ use it as a baseline when evaluating Bicycle on both synthetic and Perturb-seq benchmarks.
 Interventional extensions exist, but explicit acyclicity constraints preclude modeling feedback.
 Cyclic causal discovery has been studied in equilibrium and dynamical settings
 \cite{mooij2013cyclic,bongers2021theoretical,sethuraman2025dccdconf}. Bicycle contributes by combining cyclic structure
