@@ -219,16 +219,22 @@ This formulation links continuous-time dynamics to cyclic causal structure.
 \subsection{Observation Model}
 Observed single-cell RNA-seq counts are \emph{compositional}: for a given cell \(n\), sequencing produces a finite
 total number of captured molecules (UMIs), so only relative abundances across genes are directly
-observable. Bicycle therefore models the observed counts \(x_n \in \mathbb{N}^G\) using a Multinomial
-likelihood,
+observable. Bicycle therefore models the observed counts \(x_n \in \mathbb{N}^G\) conditionally on the
+latent state \(z_n\) using a Multinomial likelihood,
 \[
-x_n \sim \mathrm{Multinomial}(N_n,\pi_n),
+x_n \mid z_n, N_n \sim \mathrm{Multinomial}(N_n,\pi_n),
 \qquad
 \pi_n = \mathrm{Softmax}(z_n),
 \]
-where \(N_n = \sum_{g=1}^G x_{ng}\) is the (observed) library size and \(z_n \in \mathbb{R}^G\) denotes the
-latent log-proportion state. In this view, \(z_n\) captures the underlying biological state, while the
-Multinomial distribution captures sampling variability induced by finite sequencing depth.
+where \(N_n = \sum_{g=1}^G x_{ng}\) is the observed library size and \(z_n \in \mathbb{R}^G\) denotes the
+latent log-proportion state. Equivalently,
+\[
+p(x_n \mid z_n) = \mathrm{Multinomial}(x_n; \pi_n),
+\qquad
+\pi_n = \mathrm{Softmax}(z_n).
+\]
+In this view, \(z_n\) captures the underlying biological state, while the Multinomial distribution
+captures sampling variability induced by finite sequencing depth.
 
 \subsection{Perturbation Modeling via Independent Causal Mechanisms}
 A key innovation of Bicycle is incorporating perturbation-specific modifications to the dynamical
@@ -247,13 +253,27 @@ but \textbf{only} for genes directly targeted by the intervention. For all other
 \sigma^i_{gh} = \sigma_{gh}.
 \]
 This realizes the \textbf{Independent Causal Mechanisms} (ICM) principle, which posits that
-different causal modules remain stable across environments unless directly intervened upon
-\cite{scholkopf2021causalrep}. In Bicycle, ICM becomes an explicit inductive bias: changes are
-localized to the perturbed gene’s mechanism.
+the causal generative process is composed of autonomous modules that remain invariant across
+environments unless directly intervened upon \cite{peters2017elements,scholkopf2021causalrep}.
+In Bicycle, this becomes an explicit inductive bias: most parameters are shared across perturbed
+and unperturbed contexts, and changes are localized to the mechanism of the directly perturbed
+gene \cite{rohbeck2024bicycle}.
 
 \subsection{Variational Inference}
-Bicycle optimizes a variational Evidence Lower Bound (ELBO) with additional structural penalties \cite{rohbeck2024bicycle}.
-Let \(q(z_n)\) be a factorized Gaussian variational distribution. The objective is:
+Because the latent states \(z_n\) are not observed, the exact posterior distribution over \(z_n\)
+given the count data is not tractable. Bicycle therefore uses variational inference: it replaces the
+intractable posterior with a tractable approximation \(q(z_n)\), chosen as an independent Gaussian
+distribution with a separate mean and standard deviation for each latent coordinate and each cell.
+The model parameters and the variational parameters are then optimized jointly by maximizing a
+variational Evidence Lower Bound (ELBO), augmented with structural penalties that encode the
+steady-state dynamical assumptions of Bicycle and encourage sparsity in the inferred regulatory
+graph. :contentReference[oaicite:0]{index=0}
+
+Concretely, the objective combines four components: (i) a data-fit term that rewards accurate
+reconstruction of the observed counts, (ii) a KL term that keeps the latent state close to the
+intervention-specific steady-state Gaussian prior, (iii) a penalty enforcing approximate consistency
+with the Lyapunov equation implied by the OU dynamics, and (iv) an \(\ell_1\)-penalty on
+\(\beta\) that promotes a sparse interaction matrix. The objective displayed below is reproduced from the Bicycle paper, with only minor notational changes.
 
 \vspace*{2cm}
 
@@ -288,6 +308,17 @@ Let \(q(z_n)\) be a factorized Gaussian variational distribution. The objective 
 
 \end{tikzpicture}
 
+\vspace*{2cm}
+
+The first term is the expected log-likelihood of the observed counts under the variational
+distribution and measures how well the model explains the data. The second term regularizes the
+latent representation by encouraging it to remain close to the steady-state distribution associated
+with the intervention applied to cell \(n\). The third term penalizes violations of the Lyapunov
+equation, thereby tying the learned covariance structure to the assumed linear dynamics. The final
+term encourages sparsity in the regulatory coefficients, which improves interpretability and helps
+prevent overfitting. The hyperparameters \(\gamma\), \(\xi\), and \(\lambda\) control the relative weight of
+these components. 
+
 \subsection{How I-MAE is defined and why it is graph-dependent}
 \label{sec:imae-graph}
 Bicycle evaluates generalization using \emph{Interventional Mean Absolute Error} (I-MAE, defined in Section~\ref{sec:imae-def}) on held-out perturbations. The key point is
@@ -311,7 +342,7 @@ subset (\(G=61\)) and the 90/10 perturbation split protocol (55 train perturbati
 Overall, we were able to closely recreate the reported I-MAE behavior (including qualitative
 rankings across contexts and the spread across runs), but we did not obtain a perfect quantitative
 match to the absolute I-MAE values reported by \cite{rohbeck2024bicycle}; see footnote~\footref{fn:repro-code}).
-\footnote{\label{fn:repro-code}\href{https://github.com/USERNAME/REPO}{Code for our reproduction is available on GitHub.}}This is plausible given
+\footnote{\label{fn:repro-code}\href{https://github.com/Scooter1337/bicycle-thesis}{Code for our reproduction is available on GitHub.}}This is plausible given
 that several training details of the original Perturb-seq runs (e.g., epoch budget and optimizer
 settings) are not fully specified in the paper. Secondly our reproduction differs in a few
 implementation choices. 
@@ -365,7 +396,7 @@ metric:
 Differential expression (DE) refers to genes whose expression differs significantly between perturbed and control cells under a statistical test.
 DES evaluates whether the model correctly predicts \textbf{which genes become significantly
 differentially expressed} after a perturbation. For each perturbation \(k\), predicted and true DE
-genes are identified by comparing perturbed cells to controls (Wilcoxon test with multiple-testing
+genes are identified by comparing perturbed cells to controls. The comparison is comprised of a Wilcoxon test with multiple-testing
 correction and an FDR threshold as in the Virtual Cell Challenge definition) \cite{virtualcellchallenge_eval}. Here the Wilcoxon rank-sum test is a nonparametric test comparing expression distributions between perturbed and control groups, and FDR is the false discovery rate controlled via multiple-testing correction across genes. Here \(k\) indexes perturbations (i.e., target genes) in the evaluation set; \(G_{k,\mathrm{true}}\) and
 \(G_{k,\mathrm{pred}}\) denote the differentially expressed (DE) gene sets for perturbation \(k\). The
 per-perturbation score is
@@ -461,10 +492,13 @@ performance. The Virtual Cell Challenge proposes an evaluation framework aimed a
 generalization and uses DES and PDS alongside MAE \cite{virtualcellchallenge_eval}. This thesis follows
 that philosophy: I-MAE is informative but insufficient as a single ``leaderboard metric''.
 
-Related work suggests two recurring themes:
+Related work suggests two recurring themes
+\cite{rohbeck2024bicycle,nilforoshan2023zeroshot,virtualcellchallenge_eval,liu2025pds}:
 \begin{itemize}
-    \item \textbf{Causal structure matters} for out-of-distribution generalization under intervention, particularly in biological systems with feedback.
-    \item \textbf{Metric choice matters} because different metrics can invert model rankings.
+    \item \textbf{Causal structure matters} for out-of-distribution generalization under intervention, particularly in biological systems with feedback
+    \cite{rohbeck2024bicycle,nilforoshan2023zeroshot}.
+    \item \textbf{Metric choice matters} because different metrics can change or even invert model rankings
+    \cite{virtualcellchallenge_eval,liu2025pds}.
 \end{itemize}
 Our experiments therefore emphasize multi-metric evaluation.
 
@@ -487,7 +521,7 @@ that each context has an explicit control subset aligned with the perturbation c
 
 \begin{table}[H]
 \centering
-\caption{Dataset statistics used in our experiments.}
+\caption{Summary of the Frangieh Perturb-CITE-seq subsets used in this thesis, reported separately for the three biological contexts. \#Cells is the total number of cells in the context-specific dataset after preprocessing; \#Control is the number of non-targeting control cells; \#Perturbed is the number of cells assigned to a gene-targeting perturbation; \#Perts is the number of distinct perturbation conditions (target genes) present in that context; and \#Train/\#Test give the number of perturbation conditions assigned to the training and held-out test split, respectively. The split is performed over perturbations rather than over genes in the expression vector or over individual cells.}
 \label{tab:dataset-stats}
 \begin{tabular}{lrrrrrr}
 \toprule
@@ -575,7 +609,9 @@ To quantify agreement between metrics across contexts and repeated runs, we comp
 DES and PDS depend on design choices (DE test, FDR threshold, similarity metric, and scaling).
 While we follow the Virtual Cell Challenge rubric, we make these choices explicit:
 (i) DE testing uses a two-sided Wilcoxon rank-sum test with tie correction;
-(ii) multiple-testing correction is Benjamini--Hochberg with an FDR threshold of \(0.05\);
+(ii) multiple-testing correction uses the Benjamini--Hochberg procedure to control the false
+discovery rate (FDR), i.e.\ the expected proportion of false positives among the rejected
+hypotheses, at a threshold of \(0.05\) \cite{benjamini1995fdr};
 (iii) PDS ranks delta signatures by Manhattan (\(\ell_1\)) distance; and
 (iv) scaling uses per-cell library-size normalization followed by a \(\log(1+x)\) transform.
 Concretely, for raw counts \(x_{ng}\) we compute \(L_n=\sum_{g=1}^{G}x_{ng}\), normalize
@@ -603,14 +639,19 @@ and rank stability rather than absolute values.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{figures/imae_boxplots.pdf}
-    \caption{Comparison of out-of-distribution generalisation in terms of the interventional mean absolute error (I-MAE) across three biological contexts. Co-culture: lymphocytes co-cultured with melanoma cells. IFN-$\gamma$: lymphocytes stimulated by interferon-$\gamma$. Control: lymphocytes cultured in neutral medium. Methods shown are \textit{VCC-Baseline} (the Virtual Cell Challenge cell-mean baseline as defined in Section~\ref{sec:baselines}), \textit{WT-Baseline} (the control-mean baseline as defined in Section~\ref{sec:baselines}), and \textit{Bicycle}. Box plots show the distribution of I-MAE over repeated runs (minimum, lower quartile, median, upper quartile, maximum, and outliers).}
+    \caption{Comparison of out-of-distribution generalization in terms of the interventional mean
+absolute error (I-MAE) across three biological contexts. Co-culture: lymphocytes co-cultured
+with melanoma cells. IFN-$\gamma$: lymphocytes stimulated by interferon-$\gamma$. Control:
+lymphocytes cultured in neutral medium. Methods shown are \textit{VCC-Baseline},
+\textit{WT-Baseline}, and \textit{Bicycle}; baseline definitions are given in
+Section~\ref{sec:baselines}. Box plots show the distribution of I-MAE over repeated runs
+(minimum, lower quartile, median, upper quartile, maximum, and outliers).}
     \label{fig:imae_boxplots}
 \end{figure}
 
 \begin{table}[H]
 \centering
-\caption{Aggregate performance across runs (mean $\pm$ std). Test aggregates over the 6 held-out perturbations
-(target genes 56--61, 1-indexed).}
+\caption{Aggregate performance on the held-out test perturbations (target genes 56--61, 1-indexed) for the three biological contexts. \textsc{Bicycle} results are shown as mean $\pm$ standard deviation across repeated runs. ``I-MAE (WT)'' is the control-mean baseline, which predicts the context-specific non-targeting control mean for each perturbed cell. ``I-MAE (VCC)'' is the Virtual Cell Challenge-style cell-mean baseline, which predicts the mean expression over all training cells in the same context. DES and PDS are the corresponding \textsc{Bicycle} scores on the same held-out perturbations. Lower I-MAE indicates better performance; higher DES and PDS indicate better performance.}
 \label{tab:main-metrics-1}
 \begin{tabular}{lccccc}
 \toprule
@@ -800,7 +841,8 @@ We suggest several directions.
     measures in PDS to assess stability of conclusions.
     \item \textbf{Broader baselines:} Compare \textsc{Bicycle} against strong perturbation predictors under the same train/test perturbation split and the same DES/PDS implementation, including \textsc{GEARS} \cite{roohani2024gears}, \textsc{PerturbNet} \cite{yu2025perturbnet}, and \textsc{CaML} \cite{nilforoshan2023zeroshot}. This tests whether the interpretability of an explicit GRN (\(\beta\)) trades off against predictive performance when judged by signature-level metrics beyond I-MAE.
     \item \textbf{Beyond steady state:} Extend Bicycle-style causal modeling to explicitly time-resolved
-    perturbation trajectories where available.
+perturbation trajectories in settings where the dataset includes multiple post-perturbation time
+points rather than only a single steady-state-like measurement.
 \end{enumerate}
 
 \newpage
