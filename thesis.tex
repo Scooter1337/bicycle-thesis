@@ -169,24 +169,16 @@ Throughout, we distinguish (i) \emph{directly perturbed} genes \(g \in P^i\) and
 non-target set because predicting downstream consequences is the goal.
 
 \subsection{Causal graphs and interventions}
-Bicycle is grounded in \emph{structural causal models} (SCMs). An SCM specifies variables
-\(X_1,\dots,X_G\) through \emph{structural assignments}
-\[
-X_g := f_g\!\big(X_{\mathrm{Pa}(g)}, \varepsilon_g\big),
-\]
-where \(\mathrm{Pa}(g)\) denotes the \emph{parents} (direct causes) of \(X_g\) and \(\varepsilon_g\) is exogenous
-noise. The associated directed graph has an edge \(h \to g\) whenever \(X_h\) appears in \(f_g\). In our
-setting, variables correspond to gene expression levels, so expression of gene \(g\) is generated as a
-function of its regulators and noise. \emph{Interventions} correspond to replacing the structural
-assignment(s) of targeted genes while leaving the remaining mechanisms unchanged. Classical causal
-discovery algorithms often assume acyclicity, i.e., the causal graph is a DAG. However, biological GRNs
-contain feedback loops, motivating cyclic causal models
-\cite{mooij2013cyclic,bongers2021theoretical}.
+Bicycle is motivated primarily by a \emph{stochastic dynamical systems} view of gene regulation, rather than by starting from a classical structural causal model (SCM) formulation. In the original paper, the latent gene-expression state is modeled through a continuous-time stochastic process whose steady-state distribution defines the distribution of latent expression states across cells \cite{rohbeck2024bicycle}. More specifically, Bicycle builds on a linear stochastic differential equation (SDE) / Ornstein--Uhlenbeck framework, which is well suited to gene regulatory networks because it can represent feedback-rich systems while still admitting a tractable steady-state solution.
+
+The causal interpretation is introduced at the level of the interaction matrix. Bicycle assigns the regulatory coefficient matrix \(\beta\) \emph{causal semantics}: the coefficient \(\beta_{hg}\) is interpreted as the direct effect of gene \(h\) on the transcription rate of gene \(g\) in the latent dynamical system \cite{rohbeck2024bicycle}. This is consistent with recent work on cyclic causal discovery, where causal relations are defined in systems that may contain feedback loops rather than being restricted to directed acyclic graphs (DAGs) \cite{bongers2021theoretical}. This distinction matters in biology, since gene regulatory networks often contain reciprocal regulation and feedback.
+
+Interventions are incorporated by modifying the dynamical parameters only for directly perturbed genes. Concretely, for a perturbation condition \(i\) targeting genes \(P^i\), Bicycle constructs condition-specific parameters \(\alpha^i\), \(\beta^i\), and \(\sigma^i\), while retaining the unperturbed parameters for genes not directly targeted by the intervention \cite{rohbeck2024bicycle}. This design implements the \emph{independent causal mechanisms} principle as an inductive bias: most mechanisms are shared across environments, and only the mechanisms associated with directly intervened-upon genes are allowed to change \cite{rohbeck2024bicycle,scholkopf2021causalrep}. In this sense, Bicycle is best described as a \emph{causally interpreted steady-state SDE model} for cyclic gene regulation, rather than as a model derived directly from an SCM-first formulation.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\linewidth]{figures/bicycle-figure-1.png}
-\caption{Bicycle integrates information from multiple interventions to infer an underlying causal graph and predict responses for unseen interventions \cite{rohbeck2024bicycle}.}
+\caption{Bicycle uses data from multiple interventions to estimate an underlying causal graph and to predict responses to unseen interventions. The model is built from intervention-specific stochastic dynamics whose steady-state latent distributions are linked to observed count data \cite{rohbeck2024bicycle}.}
 \label{fig:bicycle_unseen_interventions}
 \end{figure}
 
@@ -267,7 +259,7 @@ distribution with a separate mean and standard deviation for each latent coordin
 The model parameters and the variational parameters are then optimized jointly by maximizing a
 variational Evidence Lower Bound (ELBO), augmented with structural penalties that encode the
 steady-state dynamical assumptions of Bicycle and encourage sparsity in the inferred regulatory
-graph. :contentReference[oaicite:0]{index=0}
+graph. 
 
 Concretely, the objective combines four components: (i) a data-fit term that rewards accurate
 reconstruction of the observed counts, (ii) a KL term that keeps the latent state close to the
@@ -309,6 +301,11 @@ with the Lyapunov equation implied by the OU dynamics, and (iv) an \(\ell_1\)-pe
 \end{tikzpicture}
 
 \vspace*{2cm}
+
+Here, \(x\) denotes the observed count data; \(\alpha,\beta,\sigma,\hat{\alpha},\hat{\sigma}\) are
+the model parameters; and \(\mu_z,\sigma_z\) are the variational parameters. Thus,
+\(\mathcal{L}^{\gamma,\xi,\lambda}\) defines the criterion that is optimized jointly over the model and
+variational parameters during training.
 
 The first term is the expected log-likelihood of the observed counts under the variational
 distribution and measures how well the model explains the data. The second term regularizes the
@@ -407,36 +404,54 @@ per-perturbation score is
 Without a size constraint, DES would allow a trivial overprediction strategy: by calling many genes differentially expressed, a model could increase overlap with the true DE set even if its predictions were biologically uninformative. The evaluation therefore constrains the evaluated predicted DE set to match the size of the true DE set \cite{virtualcellchallenge_eval}. As a result, DES focuses on \emph{which} genes are recovered as differentially expressed, rather than on absolute effect magnitude across the full profile.
 
 \subsection{Perturbation Discrimination Score (PDS)}
-PDS assesses whether each perturbation’s signature is \textbf{recognizably distinct}. In the Virtual Cell
-Challenge rubric \cite{virtualcellchallenge_eval}, the score is computed by:
-\begin{enumerate}
-    \item \textbf{Compute pseudobulk profiles.} For each perturbation \(k \in \{1,\dots,N\}\), compute the
-    true pseudobulk expression profile \(x_k\) by averaging the \(\log(1+x)\)-normalized expression of each
-    gene across all cells under perturbation \(k\), and compute the corresponding non-targeting control
-    pseudobulk \(x_{\mathrm{ntc}}\). Analogously, compute predicted pseudobulk profiles \(\hat{x}_k\) and
-    \(\hat{x}_{\mathrm{ntc}}\).
+PDS evaluates whether a model predicts a \emph{distinctive perturbation signature} for each intervention.
+More precisely, it asks whether the prediction for perturbation \(p\) is most similar to the \emph{true}
+signature of the same perturbation, rather than to the signatures of other perturbations
+\cite{virtualcellchallenge_eval}.
 
-    \item \textbf{Form delta signatures.} Define true and predicted delta signatures as
-    \[
-        \delta_k = x_k - x_{\mathrm{ntc}},
-        \qquad
-        \hat{\delta}_k = \hat{x}_k - \hat{x}_{\mathrm{ntc}}.
-    \]
+Let \(K\) denote the number of perturbations being evaluated. For each perturbation
+\(k \in \{1,\dots,K\}\), define:
+\begin{itemize}
+    \item \(y_k \in \mathbb{R}^G\): the true pseudobulk expression profile, obtained by averaging the
+    \(\log(1+x)\)-normalized expression values across all cells under perturbation \(k\);
+    \item \(\hat{y}_k \in \mathbb{R}^G\): the corresponding predicted pseudobulk expression profile;
+    \item \(y_{\mathrm{ntc}} \in \mathbb{R}^G\) and \(\hat{y}_{\mathrm{ntc}} \in \mathbb{R}^G\): the true and predicted
+    non-targeting control pseudobulk profiles.
+\end{itemize}
 
-    \item \textbf{Rank by L1 similarity and score.} For each predicted perturbation \(p\), compute the
-    L1 (Manhattan) distance to every true delta signature,
-    \[
-        d_{pt} = \|\hat{\delta}_p - \delta_t\|_1, \qquad t=1,\dots,N,
-    \]
-    sort \(\{d_{pt}\}_{t=1}^N\) in ascending order, and let \(r_p\) be the rank position of the correct
-    match \(t=p\). The per-perturbation score is then
-    \[
-        \mathrm{PDS}_p = 1 - \frac{r_p - 1}{N}.
-    \]
-\end{enumerate}
-The rank is normalized to \([0,1]\) such that higher is better. PDS is designed to be robust to global
-effect-size scaling: if the correct \emph{pattern} is present, a model may score well even if it
-underestimates magnitude.
+From these, define the true and predicted \emph{delta signatures} for perturbation \(k\) as
+\[
+\delta_k = y_k - y_{\mathrm{ntc}},
+\qquad
+\hat{\delta}_k = \hat{y}_k - \hat{y}_{\mathrm{ntc}}.
+\]
+
+Now fix a predicted perturbation \(p\). For every true perturbation \(t \in \{1,\dots,K\}\), define the
+Manhattan (\(\ell_1\)) distance
+\[
+d_{pt} = \|\hat{\delta}_p - \delta_t\|_1 .
+\]
+These distances measure how similar the predicted signature of perturbation \(p\) is to each true
+perturbation signature. Following the Virtual Cell Challenge definition, the directly targeted gene is
+excluded from this distance calculation \cite{virtualcellchallenge_eval}.
+
+Next, sort the distances \(d_{p1},\dots,d_{pK}\) in ascending order and let \(r_p \in \{1,\dots,K\}\) denote
+the rank of the correct match \(t=p\). Thus:
+\begin{itemize}
+    \item \(r_p = 1\) if the prediction for perturbation \(p\) is closest to its own true signature;
+    \item larger \(r_p\) means that one or more incorrect perturbation signatures are closer.
+\end{itemize}
+
+The per-perturbation PDS is then defined as
+\[
+\mathrm{PDS}_p = 1 - \frac{r_p - 1}{K}.
+\]
+This score lies in \([0,1]\), where \(1\) is best. The overall PDS is the mean of \(\mathrm{PDS}_p\) over all
+evaluated perturbations \(p\).
+
+Intuitively, PDS rewards models that recover the \emph{pattern} of the perturbation response well
+enough to distinguish one perturbation from another, even when absolute effect sizes are not
+perfectly matched.
 
 \subsection{Why All Three Metrics Are Needed}
 The three performance metrics capture complementary information:
@@ -606,17 +621,27 @@ perturbation effects are weak or sparse, motivating complementary metrics such a
 To quantify agreement between metrics across contexts and repeated runs, we compute pairwise correlations using both Pearson's \(r\) (linear association) and Spearman's \(\rho\) (rank association). Since I-MAE is a loss (lower is better) while DES and PDS are scores (higher is better), negative correlations between I-MAE and DES/PDS are expected.
 
 \subsection{Robustness and sensitivity analysis}\label{robustness}
-DES and PDS depend on design choices (DE test, FDR threshold, similarity metric, and scaling).
-While we follow the Virtual Cell Challenge rubric, we make these choices explicit:
-(i) DE testing uses a two-sided Wilcoxon rank-sum test with tie correction;
-(ii) multiple-testing correction uses the Benjamini--Hochberg procedure to control the false
-discovery rate (FDR), i.e.\ the expected proportion of false positives among the rejected
-hypotheses, at a threshold of \(0.05\) \cite{benjamini1995fdr};
-(iii) PDS ranks delta signatures by Manhattan (\(\ell_1\)) distance; and
-(iv) scaling uses per-cell library-size normalization followed by a \(\log(1+x)\) transform.
-Concretely, for raw counts \(x_{ng}\) we compute \(L_n=\sum_{g=1}^{G}x_{ng}\), normalize
-\(\tilde{x}_{ng}=x_{ng}/L_n\), and use \(y_{ng}=\log(1+\tilde{x}_{ng})\) for DE testing and
-pseudobulk/delta computations.
+DES and PDS are not determined by the data alone: their values depend on the evaluation pipeline used
+to define differential expression and perturbation similarity. In this thesis, we therefore fix one such
+pipeline and use it unchanged across all contexts and runs.
+
+Specifically, DES is computed using gene-wise two-sided Wilcoxon rank-sum tests with tie correction,
+followed by Benjamini--Hochberg correction and an FDR cutoff of \(0.05\)
+\cite{virtualcellchallenge_eval,benjamini1995fdr}. PDS is computed by forming perturbation-minus-control
+pseudobulk delta signatures and ranking predicted signatures against true signatures using Manhattan
+(\(\ell_1\)) distance \cite{virtualcellchallenge_eval}. For both metrics, the expression values entering the
+evaluation are the normalized log-expression values
+\[
+L_n=\sum_{g=1}^{G} x_{ng}, \qquad
+\tilde{x}_{ng}=\frac{x_{ng}}{L_n}, \qquad
+y_{ng}=\log(1+\tilde{x}_{ng}).
+\]
+
+Thus, the concrete choices fixed in our evaluation are: the DE test, the multiple-testing correction,
+the FDR threshold, the PDS similarity measure, and the expression transformation used before DE
+testing and pseudobulk construction. Our robustness discussion should therefore be read as a statement
+about sensitivity to changes in this evaluation pipeline, not as a claim that DES or PDS have a unique,
+method-independent definition.
 
 \subsubsection{DES sensitivity}
 DES depends on how the ``true'' DE set \(G_{k,\mathrm{true}}\) is defined by the DE-testing pipeline
@@ -737,8 +762,11 @@ I-MAE but still produce biologically unfaithful signatures.
 \subsubsection{When I-MAE can be misleading}
 \label{sec:qualitative}
 I-MAE averages absolute errors over all non-target genes, so it can look favorable even when the
-predicted perturbation \emph{signature} is biologically incorrect. We observed three practical failure
-modes that motivate reporting DES and PDS alongside I-MAE.
+predicted perturbation \emph{signature} is biologically incorrect. The three failure modes below make
+explicit the limitations already discussed in Section~\ref{sec:imae-def}: averaging can mask errors on
+responsive genes, mean-like predictions can appear accurate under MAE, and distinct perturbations can
+collapse to similar predicted responses. These cases explain why DES and PDS remain informative even
+when I-MAE appears acceptable.
 
 \paragraph{(1) Error averaging can hide signature mistakes.}
 Because I-MAE aggregates over many genes, errors on a relatively small set of responsive genes can
@@ -794,12 +822,14 @@ While we did not reproduce the exact numerical I-MAE values reported in \cite{ro
 we recovered the same qualitative behavior: performance is context-dependent, and the relative
 difficulty ordering is consistent across metrics.
 
-A central empirical takeaway is that single-score evaluation is insufficient. By adding DES and PDS
-to the standard I-MAE evaluation, we found that the three metrics are correlated but not redundant:
-runs that improve I-MAE often (but not always) improve DES/PDS, and rank agreement is stronger
-than linear agreement (Table~\ref{tab:metric-corr}). This matters in practice because I-MAE can look
-favorable even when the model fails to recover the correct differential expression \emph{gene set} or
-produces overly weak/non-specific perturbation signatures (Section~\ref{sec:qualitative}).
+A central empirical takeaway is that I-MAE is a useful but incomplete summary of perturbation-
+prediction quality. In our experiments, lower I-MAE usually coincides with higher DES and PDS,
+indicating broad agreement between the metrics. However, this agreement is far from perfect, and
+is stronger for \emph{ordering} runs than for quantifying the size of performance differences
+(Table~\ref{tab:metric-corr}). Consequently, I-MAE alone can miss biologically relevant variation:
+runs with comparable reconstruction error can still differ in which DE genes they recover and in
+whether their predicted perturbation signatures remain distinguishable. DES and PDS therefore add
+complementary information rather than merely repeating what is already captured by I-MAE.
 
 Finally, comparing contexts shows that generalization difficulty is not uniform: IFN-$\gamma$ is the
 most challenging setting under all three metrics on the held-out perturbations, whereas Control and
