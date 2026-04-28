@@ -66,7 +66,7 @@ In this thesis we evaluate \textbf{Bicycle} \cite{rohbeck2024bicycle}, a causal
 model that combines a latent dynamical system with intervention-aware parameterization to infer a
 \emph{cyclic} gene regulatory network and generalize to held-out perturbations. We reproduce the
 Bicycle training and evaluation pipeline on three biological contexts from the Perturb-CITE-seq
-study of Frangieh et al.\ \cite{frangieh2021perturbcite}, namely Control, IFN-$\gamma$, and
+study of Frangieh et al.\ \cite{frangieh2021perturbcite}, namely, Control, IFN-$\gamma$, and
 Co-culture.
 
 Beyond the standard \emph{interventional mean absolute error} (I-MAE) used in the Bicycle paper,
@@ -81,7 +81,7 @@ biological correctness of predicted perturbation response signatures. We further
 modeling.
 \end{abstract}
 
-\bigskip
+\newpage
 
 \thispagestyle{empty}
 \tableofcontents
@@ -120,7 +120,7 @@ three complementary metrics used in the \textbf{Virtual Cell Challenge}:
     \item the \emph{Perturbation Discrimination Score} (PDS).
 \end{itemize}
 These metrics assess distinct aspects of model performance, and let us test whether I-MAE alone is
-a reliable indicator of biologically meaningful prediction quality, definitions are provided in Section~3.
+a reliable indicator of biologically meaningful prediction quality, definitions, are provided in Section~3.
 
 Concretely, we address the following questions:
 \begin{enumerate}
@@ -169,11 +169,11 @@ Throughout, we distinguish (i) \emph{directly perturbed} genes \(g \in P^i\) and
 non-target set because predicting downstream consequences is the goal.
 
 \subsection{Causal graphs and interventions}
-Bicycle is motivated primarily by a \emph{stochastic dynamical systems} view of gene regulation, rather than by starting from a classical structural causal model (SCM) formulation. In the original paper, the latent gene-expression state is modeled through a continuous-time stochastic process whose steady-state distribution defines the distribution of latent expression states across cells \cite{rohbeck2024bicycle}. More specifically, Bicycle builds on a linear stochastic differential equation (SDE) / Ornstein--Uhlenbeck framework, which is well suited to gene regulatory networks because it can represent feedback-rich systems while still admitting a tractable steady-state solution.
+Bicycle is motivated primarily by a \emph{stochastic dynamical systems} view of gene regulation, rather than by starting from a classical structural causal model (SCM) formulation \cite{pearl2009causality}. In the original paper, the latent gene-expression state is modeled through a continuous-time stochastic process whose steady-state distribution defines the distribution of latent expression states across cells \cite{rohbeck2024bicycle}. More specifically, Bicycle builds on a linear stochastic differential equation (SDE) / Ornstein--Uhlenbeck framework, which is well suited to gene regulatory networks because it can represent feedback-rich systems while still admitting a tractable steady-state solution.
 
-The causal interpretation is introduced at the level of the interaction matrix. Bicycle assigns the regulatory coefficient matrix \(\beta\) \emph{causal semantics}: the coefficient \(\beta_{hg}\) is interpreted as the direct effect of gene \(h\) on the transcription rate of gene \(g\) in the latent dynamical system \cite{rohbeck2024bicycle}. This is consistent with recent work on cyclic causal discovery, where causal relations are defined in systems that may contain feedback loops rather than being restricted to directed acyclic graphs (DAGs) \cite{bongers2021theoretical}. This distinction matters in biology, since gene regulatory networks often contain reciprocal regulation and feedback.
+The causal interpretation is introduced at the level of the interaction matrix. Bicycle assigns the regulatory coefficient matrix \(\beta\) causal semantics: the coefficient \(\beta_{hg}\) is interpreted as the direct effect of gene \(h\) on the transcription rate of gene \(g\) in the latent dynamical system \cite{rohbeck2024bicycle}. This is consistent with recent work on cyclic causal discovery, where causal relations are defined in systems that may contain feedback loops rather than being restricted to directed acyclic graphs (DAGs) \cite{bongers2021theoretical}. This distinction matters in biology, since gene regulatory networks often contain reciprocal regulation and feedback.
 
-Interventions are incorporated by modifying the dynamical parameters only for directly perturbed genes. Concretely, for a perturbation condition \(i\) targeting genes \(P^i\), Bicycle constructs condition-specific parameters \(\alpha^i\), \(\beta^i\), and \(\sigma^i\), while retaining the unperturbed parameters for genes not directly targeted by the intervention \cite{rohbeck2024bicycle}. This design implements the \emph{independent causal mechanisms} principle as an inductive bias: most mechanisms are shared across environments, and only the mechanisms associated with directly intervened-upon genes are allowed to change \cite{rohbeck2024bicycle,scholkopf2021causalrep}. In this sense, Bicycle is best described as a \emph{causally interpreted steady-state SDE model} for cyclic gene regulation, rather than as a model derived directly from an SCM-first formulation.
+Interventions are incorporated by modifying the dynamical parameters only for directly perturbed genes. Concretely, for a perturbation condition \(i\) targeting genes \(P^i\), Bicycle constructs condition-specific parameters \(\alpha^i\), \(\beta^i\), and \(\sigma^i\), while retaining the unperturbed parameters for genes not directly targeted by the intervention \cite{rohbeck2024bicycle}. This design implements the \emph{independent causal mechanisms} principle as an inductive bias: most mechanisms are shared across environments, and only the mechanisms associated with directly intervened-upon genes are allowed to change \cite{rohbeck2024bicycle,scholkopf2021causalrep}. 
 
 \begin{figure}[H]
 \centering
@@ -316,7 +316,7 @@ term encourages sparsity in the regulatory coefficients, which improves interpre
 prevent overfitting. The hyperparameters \(\gamma\), \(\xi\), and \(\lambda\) control the relative weight of
 these components. 
 
-\subsection{How I-MAE is defined and why it is graph-dependent}
+\subsection{How I-MAE is defined in Bicycle}
 \label{sec:imae-graph}
 Bicycle evaluates generalization using \emph{Interventional Mean Absolute Error} (I-MAE, defined in Section~\ref{sec:imae-def}) on held-out perturbations. The key point is
 that Bicycle does \emph{not} simply output a mean expression vector per perturbation. Instead, the
@@ -334,7 +334,7 @@ In addition to implementing Bicycle as described in \cite{rohbeck2024bicycle}, w
 Across repeated runs, we matched the hyperparameters, training schedule, loss-weighting
 coefficients, sparsity penalty grid for \(\lambda\), and preprocessing choices to the extent they were
 documented in \cite{rohbeck2024bicycle} and the official code. We also matched the reported gene
-subset (\(G=61\)) and the 90/10 perturbation split protocol (55 train perturbations, 6 test).
+subset and the 90/10 perturbation split protocol (55 train perturbations, 6 test).
 
 Overall, we were able to closely recreate the reported I-MAE behavior (including qualitative
 rankings across contexts and the spread across runs), but we did not obtain a perfect quantitative
@@ -383,10 +383,10 @@ metric:
     a model can obtain a low average error by predicting the many unaffected genes well. This can happen even if it misses
     the key responders.
 
-    \item \textbf{Averaging can hide wrong biology:} 
+    \item \textbf{Averaging can hide missed perturbation effects:} 
     Two predictions can have similar MAE even when one fails to capture the perturbation response itself. This occurs because MAE only measures absolute deviation from the observed expression values: a prediction that stays close to the overall or control-like mean can obtain a similar error, even if it misses which genes should increase or decrease under the perturbation.
 
-    \item \textbf{No notion of distinguishability:} MAE also does not test whether different perturbations yield distinct predicted responses. Different perturbations can collapse to similar predicted deltas, while the average error remains moderate.
+    \item \textbf{No notion of distinguishability:} MAE does not test whether the predicted response for perturbation \(p\) is more similar to the true response of \(p\) than to the true response of another perturbation. As a result, a model can predict overly similar perturbation signatures for different interventions and still obtain a moderate MAE, because the error is averaged over genes rather than evaluating whether perturbations remain identifiable from their predicted responses.
 \end{itemize}
 
 \subsection{Differential Expression Score (DES)}
@@ -495,7 +495,7 @@ steady-state dynamical system and by encoding interventions through ICM-style pa
 invariance.
 
 \subsection{Causal discovery with cycles and interventions}
-Many causal discovery methods assume acyclicity, including NOTEARS \cite{zheng2018notears}. We highlight NOTEARS in particular because Rohbeck et al.\ use it as a baseline when evaluating Bicycle on both synthetic and Perturb-seq benchmarks.
+Many causal discovery methods assume acyclicity, including NOTEARS \cite{zheng2018notears}. We highlight NOTEARS in particular because Rohbeck et al.\ use it as a baseline when evaluating Bicycle on both synthetic and Perturb-seq benchmarks~\cite{rohbeck2024bicycle}.
 Interventional extensions exist, but explicit acyclicity constraints preclude modeling feedback.
 Cyclic causal discovery has been studied in equilibrium and dynamical settings
 \cite{mooij2013cyclic,bongers2021theoretical,sethuraman2025dccdconf}. Bicycle contributes by combining cyclic structure
@@ -775,7 +775,7 @@ differing substantially in whether they capture the correct direction and rankin
 PDS is designed to be sensitive to this by comparing the full ranked delta signature to ground truth.
 
 \paragraph{(2) ``Smooth'' predictions can look good under I-MAE.}
-A predictor that regresses toward a context-specific mean profile can achieve a decent average error
+A predictor that regresses toward a context-specific mean profile can achieve a decent mean absolute error
 even if it underestimates perturbation-specific effects (i.e., it predicts changes that are too small).
 This can yield acceptable I-MAE while producing weak or non-specific delta signatures, which is
 penalized by PDS and can also reduce DES when true DE effects are not recovered.
@@ -855,13 +855,7 @@ Several limitations should be considered.
     results should be interpreted as evidence within this benchmark rather than as a direct
     estimate of genome-scale performance.
 
-    \item \textbf{Model class:} Bicycle models latent gene states with a steady-state Ornstein--Uhlenbeck
-    (OU) process, which is appropriate for perturbations measured after relaxation but less
-    suitable when responses exhibit pronounced transient dynamics, delayed effects, or multiple
-    phases. In such regimes, the steady-state assumption can bias inferred regulatory effects and
-    limit predictive accuracy for time-dependent responses. Extending the framework to explicit
-    time-series observations or non-stationary dynamics is therefore a natural direction for
-    future work.
+    
 \end{itemize}
 
 \subsection{Further research}
